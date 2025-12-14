@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>价格管理 - 迈捷手机内部流程管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <span class="logo">📱</span>
+            <h1>手机维修管理</h1>
+        </a>
+        <ul class="navbar-menu">
+            <li><a href="index.html">🏠 首页</a></li>
+            <li><a href="register.html">📝 登记</a></li>
+            <li><a href="front-desk.html">📺 前台看板</a></li>
+            <li><a href="repair.html">🔧 维修看板</a></li>
+            <li><a href="customers.html">👥 客户</a></li>
+            <li><a href="pricing.html" class="active">💰 价格管理</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2>💰 价格管理</h2>
+                <p>管理维修项目和配件价格</p>
+            </div>
+            <button class="btn btn-primary" onclick="showAddModal()">
+                ➕ 批量添加
+            </button>
+        </div>
+
+        <!-- 筛选栏 -->
+        <div class="card" style="margin-bottom: 1.5rem; padding: 1rem;">
+            <div class="form-row" style="margin-bottom: 0;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="font-size: 0.85rem;">品牌筛选</label>
+                    <select class="form-control" id="filterBrand" onchange="onBrandChange()">
+                        <option value="">全部品牌</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="font-size: 0.85rem;">型号筛选</label>
+                    <select class="form-control" id="filterModel" onchange="applyFilter()">
+                        <option value="">全部型号</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="font-size: 0.85rem;">维修类型筛选</label>
+                    <select class="form-control" id="filterCategory" onchange="applyFilter()">
+                        <option value="">全部类型</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0; display: flex; align-items: flex-end;">
+                    <button class="btn btn-ghost" onclick="clearFilters()">🔄 清除筛选</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="pricingContainer"></div>
+    </div>
+
+    <!-- 批量添加模态框 -->
+    <div class="modal-overlay" id="pricingModal">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 id="modalTitle">批量添加价格项目</h3>
+                <button class="modal-close" onclick="closeModal('pricingModal')">&times;</button>
+            </div>
+            <form id="pricingForm">
+                <input type="hidden" id="pricingId">
+
+                <!-- 设备选择 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">品牌 *</label>
+                        <select class="form-control" id="pricingBrandSelect" onchange="onBrandSelectChange()">
+                            <option value="">选择品牌</option>
+                        </select>
+                        <input type="text" class="form-control" id="pricingBrand" placeholder="或手动输入品牌"
+                            style="margin-top: 0.5rem;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">型号 *</label>
+                        <select class="form-control" id="pricingModelSelect" onchange="onModelSelectChange()">
+                            <option value="">选择型号</option>
+                        </select>
+                        <input type="text" class="form-control" id="pricingModel" placeholder="或手动输入型号"
+                            style="margin-top: 0.5rem;">
+                    </div>
+                </div>
+
+                <!-- 维修项目列表 -->
+                <div class="form-group">
+                    <label class="form-label">维修项目 <span
+                            style="font-size: 0.85rem; color: var(--text-muted);">(可添加多个)</span></label>
+                    <div id="repairItemsList">
+                        <!-- 动态添加 -->
+                    </div>
+                    <button type="button" class="btn btn-ghost" onclick="addRepairItemRow()"
+                        style="margin-top: 0.5rem;">
+                        ➕ 添加更多项目
+                    </button>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('pricingModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">💾 保存全部</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 编辑单项模态框 -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h3>编辑价格项目</h3>
+                <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
+            </div>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">品牌</label>
+                        <input type="text" class="form-control" id="editBrand" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">型号</label>
+                        <input type="text" class="form-control" id="editModel" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">维修类型</label>
+                    <input type="text" class="form-control" id="editCategory" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">意大利语名称</label>
+                    <input type="text" class="form-control" id="editNameIt">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">价格 (€)</label>
+                    <input type="number" class="form-control" id="editPrice" required step="0.01" min="0">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('editModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">💾 保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        let allPricing = [];
+        let filteredPricing = [];
+        let allBrands = [];
+        let allModels = [];
+        let allCategories = [];
+
+        // 加载价格列表
+        async function loadPricing() {
+            try {
+                allPricing = await API.pricing.getAll();
+
+                // 提取唯一的品牌、型号、分类
+                allBrands = [...new Set(allPricing.map(p => p.brand).filter(b => b))];
+                allModels = [...new Set(allPricing.map(p => p.model).filter(m => m))];
+                allCategories = [...new Set(allPricing.map(p => p.category).filter(c => c))];
+
+                updateFilterOptions();
+                onFilterChange();
+            } catch (error) {
+                console.error('加载价格失败:', error);
+                utils.showToast('加载失败', 'error');
+            }
+        }
+
+        // 更新筛选选项
+        function updateFilterOptions() {
+            const brandSelect = document.getElementById('filterBrand');
+            const modelSelect = document.getElementById('filterModel');
+            const categorySelect = document.getElementById('filterCategory');
+
+            brandSelect.innerHTML = '<option value="">全部品牌</option>' +
+                allBrands.map(b => `<option value="${b}">${b}</option>`).join('');
+
+            modelSelect.innerHTML = '<option value="">全部型号</option>' +
+                allModels.map(m => `<option value="${m}">${m}</option>`).join('');
+
+            categorySelect.innerHTML = '<option value="">全部类型</option>' +
+                allCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+
+
+
+        // 品牌变化时更新型号下拉框
+        function onBrandChange() {
+            const brand = document.getElementById('filterBrand').value;
+            const modelSelect = document.getElementById('filterModel');
+
+            if (brand) {
+                const brandModels = [...new Set(allPricing.filter(p => p.brand === brand).map(p => p.model).filter(m => m))];
+                modelSelect.innerHTML = '<option value="">全部型号</option>' +
+                    brandModels.map(m => `<option value="${m}">${m}</option>`).join('');
+            } else {
+                modelSelect.innerHTML = '<option value="">全部型号</option>' +
+                    allModels.map(m => `<option value="${m}">${m}</option>`).join('');
+            }
+
+            applyFilter();
+        }
+
+        // 应用筛选
+        function applyFilter() {
+            const brand = document.getElementById('filterBrand').value;
+            const model = document.getElementById('filterModel').value;
+            const category = document.getElementById('filterCategory').value;
+
+            filteredPricing = allPricing.filter(item => {
+                if (brand && item.brand !== brand) return false;
+                if (model && item.model !== model) return false;
+                if (category && item.category !== category) return false;
+                return true;
+            });
+
+            renderPricing();
+        }
+
+        // 兼容旧代码
+        function onFilterChange() {
+            applyFilter();
+        }
+
+        // 清除筛选
+        function clearFilters() {
+            document.getElementById('filterBrand').value = '';
+            document.getElementById('filterModel').value = '';
+            document.getElementById('filterCategory').value = '';
+            // 重置型号下拉框显示所有型号
+            document.getElementById('filterModel').innerHTML = '<option value="">全部型号</option>' +
+                allModels.map(m => `<option value="${m}">${m}</option>`).join('');
+            applyFilter();
+        }
+
+        // 渲染价格列表
+        function renderPricing() {
+            const container = document.getElementById('pricingContainer');
+
+            if (filteredPricing.length === 0) {
+                container.innerHTML = `
+                    <div class="card">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">💰</div>
+                            <p>暂无价格项目</p>
+                            <button class="btn btn-primary" style="margin-top: 1rem;" onclick="showAddModal()">
+                                ➕ 添加第一个项目
+                            </button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // 按品牌分组
+            const grouped = filteredPricing.reduce((acc, item) => {
+                const brand = item.brand || '未分类';
+                if (!acc[brand]) acc[brand] = [];
+                acc[brand].push(item);
+                return acc;
+            }, {});
+
+            container.innerHTML = Object.entries(grouped).map(([brand, items]) => `
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <div class="card-header">
+                        <h3 class="card-title">📱 ${brand}</h3>
+                        <span class="tag">${items.length} 项</span>
+                    </div>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>型号</th>
+                                    <th>维修类型</th>
+                                    <th>意大利语</th>
+                                    <th>价格</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(item => `
+                                    <tr>
+                                        <td>${item.model || '-'}</td>
+                                        <td>${item.category}</td>
+                                        <td style="color: var(--text-muted); font-size: 0.9rem;">${item.name_it || '-'}</td>
+                                        <td><span style="color: var(--accent-green); font-weight: 600;">€${item.price.toFixed(2)}</span></td>
+                                        <td class="actions">
+                                            <button class="btn btn-sm btn-ghost" onclick="showEditModal(${item.id})">
+                                                ✏️ 编辑
+                                            </button>
+                                            <button class="btn btn-sm btn-ghost" onclick="deletePricing(${item.id})" style="color: var(--accent-orange);">
+                                                🗑️ 删除
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 显示添加模态框
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = '批量添加价格项目';
+            document.getElementById('pricingId').value = '';
+            document.getElementById('pricingBrand').value = '';
+            document.getElementById('pricingModel').value = '';
+
+            // 填充品牌下拉
+            const brandSelect = document.getElementById('pricingBrandSelect');
+            brandSelect.innerHTML = '<option value="">选择已有品牌</option>' +
+                allBrands.map(b => `<option value="${b}">${b}</option>`).join('') +
+                '<option value="__new__">+ 添加新品牌</option>';
+
+            document.getElementById('pricingModelSelect').innerHTML = '<option value="">选择已有型号</option>';
+
+            // 清空并添加一行维修项目
+            document.getElementById('repairItemsList').innerHTML = '';
+            addRepairItemRow();
+
+            openModal('pricingModal');
+        }
+
+        // 添加维修项目行
+        function addRepairItemRow() {
+            const container = document.getElementById('repairItemsList');
+            const rowId = Date.now();
+
+            const row = document.createElement('div');
+            row.className = 'form-row repair-item-row';
+            row.id = `repair-row-${rowId}`;
+            row.style.cssText = 'background: var(--bg-glass); padding: 0.75rem; border-radius: var(--radius-md); margin-bottom: 0.5rem;';
+            row.innerHTML = `
+                <div class="form-group" style="flex: 2;">
+                    <input type="text" class="form-control repair-category" placeholder="维修类型 (如：屏幕维修)" required>
+                </div>
+                <div class="form-group" style="flex: 2;">
+                    <input type="text" class="form-control repair-name-it" placeholder="意大利语 (可选)">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <input type="number" class="form-control repair-price" placeholder="€价格" step="0.01" min="0" required>
+                </div>
+                <div class="form-group" style="flex: 0; margin-bottom: 0;">
+                    <button type="button" class="btn btn-ghost" onclick="removeRepairItemRow('${rowId}')" style="color: var(--accent-orange); padding: 0.5rem;">
+                        ✕
+                    </button>
+                </div>
+            `;
+            container.appendChild(row);
+        }
+
+        // 删除维修项目行
+        function removeRepairItemRow(rowId) {
+            const row = document.getElementById(`repair-row-${rowId}`);
+            if (row && document.querySelectorAll('.repair-item-row').length > 1) {
+                row.remove();
+            } else {
+                utils.showToast('至少保留一个项目', 'error');
+            }
+        }
+
+        // 品牌下拉变化
+        function onBrandSelectChange() {
+            const select = document.getElementById('pricingBrandSelect');
+            const input = document.getElementById('pricingBrand');
+            const modelSelect = document.getElementById('pricingModelSelect');
+
+            if (select.value === '__new__') {
+                input.focus();
+                input.value = '';
+            } else if (select.value) {
+                input.value = select.value;
+
+                // 加载该品牌的型号
+                const brandModels = [...new Set(allPricing.filter(p => p.brand === select.value).map(p => p.model).filter(m => m))];
+                modelSelect.innerHTML = '<option value="">选择已有型号</option>' +
+                    brandModels.map(m => `<option value="${m}">${m}</option>`).join('') +
+                    '<option value="__new__">+ 添加新型号</option>';
+            }
+        }
+
+        // 型号下拉变化
+        function onModelSelectChange() {
+            const select = document.getElementById('pricingModelSelect');
+            const input = document.getElementById('pricingModel');
+
+            if (select.value === '__new__') {
+                input.focus();
+                input.value = '';
+            } else if (select.value) {
+                input.value = select.value;
+            }
+        }
+
+        // 显示编辑模态框
+        function showEditModal(id) {
+            const item = allPricing.find(p => p.id === id);
+            if (!item) return;
+
+            document.getElementById('editId').value = item.id;
+            document.getElementById('editBrand').value = item.brand || '';
+            document.getElementById('editModel').value = item.model || '';
+            document.getElementById('editCategory').value = item.category;
+            document.getElementById('editNameIt').value = item.name_it || '';
+            document.getElementById('editPrice').value = item.price;
+
+            openModal('editModal');
+        }
+
+        // 批量添加表单提交
+        document.getElementById('pricingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const brand = document.getElementById('pricingBrand').value.trim();
+            const model = document.getElementById('pricingModel').value.trim();
+
+            if (!brand || !model) {
+                utils.showToast('请填写品牌和型号', 'error');
+                return;
+            }
+
+            const rows = document.querySelectorAll('.repair-item-row');
+            const items = [];
+
+            rows.forEach(row => {
+                const category = row.querySelector('.repair-category').value.trim();
+                const nameIt = row.querySelector('.repair-name-it').value.trim();
+                const price = parseFloat(row.querySelector('.repair-price').value) || 0;
+
+                if (category && price > 0) {
+                    items.push({
+                        brand,
+                        model,
+                        category,
+                        name: `${model} ${category}`,
+                        name_it: nameIt,
+                        price
+                    });
+                }
+            });
+
+            if (items.length === 0) {
+                utils.showToast('请至少填写一个维修项目', 'error');
+                return;
+            }
+
+            try {
+                for (const item of items) {
+                    await API.pricing.create(item);
+                }
+                utils.showToast(`成功添加 ${items.length} 个项目`);
+                closeModal('pricingModal');
+                loadPricing();
+            } catch (error) {
+                utils.showToast('保存失败: ' + error.message, 'error');
+            }
+        });
+
+        // 编辑表单提交
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('editId').value;
+            const data = {
+                brand: document.getElementById('editBrand').value.trim(),
+                model: document.getElementById('editModel').value.trim(),
+                category: document.getElementById('editCategory').value.trim(),
+                name: `${document.getElementById('editModel').value.trim()} ${document.getElementById('editCategory').value.trim()}`,
+                name_it: document.getElementById('editNameIt').value.trim(),
+                price: parseFloat(document.getElementById('editPrice').value)
+            };
+
+            try {
+                await API.pricing.update(id, data);
+                utils.showToast('更新成功');
+                closeModal('editModal');
+                loadPricing();
+            } catch (error) {
+                utils.showToast('保存失败: ' + error.message, 'error');
+            }
+        });
+
+        // 删除价格项目
+        async function deletePricing(id) {
+            if (!confirm('确定要删除此价格项目吗？')) return;
+
+            try {
+                await API.pricing.delete(id);
+                utils.showToast('删除成功');
+                loadPricing();
+            } catch (error) {
+                utils.showToast('删除失败: ' + error.message, 'error');
+            }
+        }
+
+        // 初始化
+        loadPricing();
+    </script>
+</body>
+
+</html>

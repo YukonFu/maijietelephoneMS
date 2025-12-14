@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  phone-shop:
+    build: .
+    container_name: phone-shop-app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-your_openai_api_key_here}

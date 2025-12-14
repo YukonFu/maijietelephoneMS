@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客户管理 - 迈捷手机内部流程管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <span class="logo">📱</span>
+            <h1>手机维修管理</h1>
+        </a>
+        <ul class="navbar-menu">
+            <li><a href="index.html">🏠 首页</a></li>
+            <li><a href="register.html">📝 登记</a></li>
+            <li><a href="front-desk.html">📺 前台看板</a></li>
+            <li><a href="repair.html">🔧 维修看板</a></li>
+            <li><a href="customers.html" class="active">👥 客户</a></li>
+            <li><a href="pricing.html">💰 价格管理</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2>👥 客户管理</h2>
+                <p>查看客户信息和维修历史</p>
+            </div>
+            <div class="search-box">
+                <span>🔍</span>
+                <input type="text" id="searchInput" placeholder="搜索姓名或手机号...">
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>姓名</th>
+                            <th>手机号</th>
+                            <th>维修次数</th>
+                            <th>注册时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customersBody">
+                        <tr>
+                            <td colspan="5" class="empty-state">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 客户详情模态框 -->
+    <div class="modal-overlay" id="customerModal">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3>客户详情</h3>
+                <button class="modal-close" onclick="closeModal('customerModal')">&times;</button>
+            </div>
+            <div id="customerModalContent"></div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal('customerModal')">关闭</button>
+                <button class="btn btn-primary" id="editCustomerBtn">✏️ 编辑客户</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑客户模态框 -->
+    <div class="modal-overlay" id="editCustomerModal">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>编辑客户</h3>
+                <button class="modal-close" onclick="closeModal('editCustomerModal')">&times;</button>
+            </div>
+            <form id="editCustomerForm">
+                <input type="hidden" id="editCustomerId">
+                <div class="form-group">
+                    <label class="form-label">姓名</label>
+                    <input type="text" class="form-control" id="editCustomerName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">电话</label>
+                    <input type="tel" class="form-control" id="editCustomerPhone" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('editCustomerModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">💾 保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // 加载客户列表
+        async function loadCustomers(search = '') {
+            try {
+                const params = search ? { search } : {};
+                const customers = await API.customers.getAll(params);
+                const tbody = document.getElementById('customersBody');
+
+                if (customers.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">暂无客户数据</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = customers.map(customer => `
+                    <tr>
+                        <td><strong>${customer.name}</strong></td>
+                        <td>${customer.phone}</td>
+                        <td>${customer.order_count || 0}</td>
+                        <td>${utils.formatDate(customer.created_at)}</td>
+                        <td class="actions">
+                            <button class="btn btn-sm btn-ghost" onclick="showCustomerDetail(${customer.id})">
+                                👁️ 查看
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('加载客户失败:', error);
+                document.getElementById('customersBody').innerHTML =
+                    '<tr><td colspan="5" class="empty-state">加载失败</td></tr>';
+            }
+        }
+
+        // 显示客户详情
+        async function showCustomerDetail(id) {
+            try {
+                const customer = await API.customers.getById(id);
+                currentCustomer = customer;
+                const content = document.getElementById('customerModalContent');
+
+                content.innerHTML = `
+                    <div style="display: grid; gap: 1.5rem;">
+                        <div class="card" style="margin: 0; padding: 1.5rem; background: var(--gradient-primary);">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-size: 1.5rem; font-weight: 600;">${customer.name}</div>
+                                    <div style="opacity: 0.8; margin-top: 0.25rem;">📞 ${customer.phone}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.9rem; opacity: 0.8;">累计消费</div>
+                                    <div style="font-size: 1.5rem; font-weight: 600;">€${customer.total_spent.toFixed(2)}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                <h4>📋 维修历史 (${customer.total_orders}次)</h4>
+                            </div>
+                            
+                            ${customer.orders.length === 0 ?
+                        '<div class="empty-state">暂无维修记录</div>' :
+                        `<div style="max-height: 400px; overflow-y: auto;">
+                                    ${customer.orders.map(order => `
+                                        <div class="card" style="margin: 0 0 1rem 0; padding: 1rem;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                                <span style="font-weight: 600; color: var(--accent-purple);">${order.order_no}</span>
+                                                <span class="status-badge ${order.status}">${order.status}</span>
+                                            </div>
+                                            <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                                                ${order.device_brand} ${order.device_model}
+                                            </div>
+                                            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                                ${order.problem.substring(0, 50)}${order.problem.length > 50 ? '...' : ''}
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-top: 0.75rem; font-size: 0.85rem;">
+                                                <span style="color: var(--text-muted);">${utils.formatDate(order.created_at)}</span>
+                                                <span style="color: var(--accent-green);">${utils.formatPrice(order.final_price || order.estimated_price)}</span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>`
+                    }
+                        </div>
+                    </div>
+                `;
+
+                openModal('customerModal');
+            } catch (error) {
+                utils.showToast('加载详情失败', 'error');
+            }
+        }
+
+        // 搜索
+        let searchTimeout;
+        let currentCustomer = null;
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadCustomers(e.target.value.trim());
+            }, 300);
+        });
+
+        // 编辑客户按钮
+        document.getElementById('editCustomerBtn').addEventListener('click', () => {
+            if (!currentCustomer) return;
+            document.getElementById('editCustomerId').value = currentCustomer.id;
+            document.getElementById('editCustomerName').value = currentCustomer.name;
+            document.getElementById('editCustomerPhone').value = currentCustomer.phone;
+            closeModal('customerModal');
+            openModal('editCustomerModal');
+        });
+
+        // 保存客户编辑
+        document.getElementById('editCustomerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editCustomerId').value;
+            const data = {
+                name: document.getElementById('editCustomerName').value.trim(),
+                phone: document.getElementById('editCustomerPhone').value.trim()
+            };
+
+            try {
+                await API.customers.update(id, data);
+                utils.showToast('客户信息更新成功');
+                closeModal('editCustomerModal');
+                loadCustomers();
+            } catch (error) {
+                utils.showToast('更新失败: ' + error.message, 'error');
+            }
+        });
+
+        // 初始化
+        loadCustomers();
+    </script>
+</body>
+
+</html>

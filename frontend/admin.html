@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理 - 迈捷手机内部流程管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <span class="logo">📱</span>
+            <h1>手机维修管理</h1>
+        </a>
+        <ul class="navbar-menu">
+            <li><a href="index.html">🏠 首页</a></li>
+            <li><a href="register.html">📝 登记</a></li>
+            <li><a href="front-desk.html">📺 前台看板</a></li>
+            <li><a href="repair.html">🔧 维修看板</a></li>
+            <li><a href="customers.html">👥 客户</a></li>
+            <li><a href="pricing.html">💰 价格管理</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2>👤 用户管理</h2>
+                <p>管理系统用户和权限</p>
+            </div>
+            <button class="btn btn-primary" onclick="showAddModal()">➕ 添加用户</button>
+        </div>
+
+        <div class="card">
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>用户名</th>
+                            <th>姓名</th>
+                            <th>角色</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersBody">
+                        <tr>
+                            <td colspan="5" class="empty-state">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 角色说明 -->
+        <div class="card" style="margin-top: 1.5rem;">
+            <div class="card-header">
+                <h3 class="card-title">📋 角色权限说明</h3>
+            </div>
+            <div style="padding: 1rem;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>角色</th>
+                            <th>说明</th>
+                            <th>权限</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="tag" style="background: var(--accent-orange);">admin</span></td>
+                            <td>管理员</td>
+                            <td>全部功能 + 用户管理</td>
+                        </tr>
+                        <tr>
+                            <td><span class="tag" style="background: var(--accent-purple);">boss</span></td>
+                            <td>老板</td>
+                            <td>全部功能 (无用户管理)</td>
+                        </tr>
+                        <tr>
+                            <td><span class="tag" style="background: var(--accent-blue);">repair</span></td>
+                            <td>维修</td>
+                            <td>维修看板 + 工单编辑</td>
+                        </tr>
+                        <tr>
+                            <td><span class="tag" style="background: var(--accent-green);">frontdesk</span></td>
+                            <td>前台</td>
+                            <td>登记 + 前台看板</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑用户模态框 -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 id="modalTitle">添加用户</h3>
+                <button class="modal-close" onclick="closeModal('userModal')">&times;</button>
+            </div>
+            <form id="userForm">
+                <input type="hidden" id="userId">
+                <div class="form-group">
+                    <label class="form-label">用户名 *</label>
+                    <input type="text" class="form-control" id="userName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码 <span id="passwordHint"
+                            style="color: var(--text-muted); font-size: 0.85rem;"></span></label>
+                    <input type="password" class="form-control" id="userPassword" placeholder="留空则不修改">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">姓名</label>
+                    <input type="text" class="form-control" id="userDisplayName">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">角色</label>
+                    <select class="form-control" id="userRole">
+                        <option value="frontdesk">前台</option>
+                        <option value="repair">维修</option>
+                        <option value="boss">老板</option>
+                        <option value="admin">管理员</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('userModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">💾 保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // 检查管理员权限
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        if (currentUser.role !== 'admin') {
+            alert('您没有权限访问此页面');
+            window.location.href = 'index.html';
+        }
+
+        let editingId = null;
+
+        // 角色显示映射
+        const roleMap = {
+            admin: { label: '管理员', color: 'var(--accent-orange)' },
+            boss: { label: '老板', color: 'var(--accent-purple)' },
+            repair: { label: '维修', color: 'var(--accent-blue)' },
+            frontdesk: { label: '前台', color: 'var(--accent-green)' }
+        };
+
+        // 加载用户列表
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/auth/users');
+                const users = await response.json();
+                const tbody = document.getElementById('usersBody');
+
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">暂无用户</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = users.map(user => {
+                    const role = roleMap[user.role] || { label: user.role, color: 'var(--text-muted)' };
+                    return `
+                        <tr>
+                            <td><strong>${user.username}</strong></td>
+                            <td>${user.name || '-'}</td>
+                            <td><span class="tag" style="background: ${role.color};">${role.label}</span></td>
+                            <td>${utils.formatDate(user.created_at)}</td>
+                            <td class="actions">
+                                <button class="btn btn-sm btn-ghost" onclick="editUser(${user.id}, '${user.username}', '${user.name || ''}', '${user.role}')">✏️ 编辑</button>
+                                ${user.username !== 'admin' ? `<button class="btn btn-sm btn-ghost" style="color: var(--accent-orange);" onclick="deleteUser(${user.id}, '${user.username}')">🗑️ 删除</button>` : ''}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('加载用户失败:', error);
+            }
+        }
+
+        // 显示添加模态框
+        function showAddModal() {
+            editingId = null;
+            document.getElementById('modalTitle').textContent = '添加用户';
+            document.getElementById('passwordHint').textContent = '(必填)';
+            document.getElementById('userForm').reset();
+            document.getElementById('userPassword').required = true;
+            openModal('userModal');
+        }
+
+        // 编辑用户
+        function editUser(id, username, name, role) {
+            editingId = id;
+            document.getElementById('modalTitle').textContent = '编辑用户';
+            document.getElementById('passwordHint').textContent = '(留空不修改)';
+            document.getElementById('userId').value = id;
+            document.getElementById('userName').value = username;
+            document.getElementById('userDisplayName').value = name;
+            document.getElementById('userRole').value = role;
+            document.getElementById('userPassword').value = '';
+            document.getElementById('userPassword').required = false;
+            openModal('userModal');
+        }
+
+        // 删除用户
+        async function deleteUser(id, username) {
+            if (!confirm(`确定要删除用户 "${username}" 吗？`)) return;
+
+            try {
+                const response = await fetch(`/api/auth/users/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+
+                if (response.ok) {
+                    utils.showToast('用户已删除');
+                    loadUsers();
+                } else {
+                    utils.showToast(result.error || '删除失败', 'error');
+                }
+            } catch (error) {
+                utils.showToast('删除失败', 'error');
+            }
+        }
+
+        // 表单提交
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const data = {
+                username: document.getElementById('userName').value.trim(),
+                name: document.getElementById('userDisplayName').value.trim(),
+                role: document.getElementById('userRole').value
+            };
+
+            const password = document.getElementById('userPassword').value;
+            if (password) data.password = password;
+
+            try {
+                let response;
+                if (editingId) {
+                    response = await fetch(`/api/auth/users/${editingId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    data.password = password;
+                    response = await fetch('/api/auth/users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    utils.showToast(editingId ? '用户已更新' : '用户已创建');
+                    closeModal('userModal');
+                    loadUsers();
+                } else {
+                    utils.showToast(result.error || '保存失败', 'error');
+                }
+            } catch (error) {
+                utils.showToast('保存失败', 'error');
+            }
+        });
+
+        // 初始化
+        loadUsers();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>备份恢复 - 迈捷手机内部流程管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <span class="logo">📱</span>
+            <h1>手机维修管理</h1>
+        </a>
+        <ul class="navbar-menu">
+            <li><a href="index.html">🏠 首页</a></li>
+            <li><a href="register.html">📝 登记</a></li>
+            <li><a href="front-desk.html">📺 前台看板</a></li>
+            <li><a href="repair.html">🔧 维修看板</a></li>
+            <li><a href="customers.html">👥 客户</a></li>
+            <li><a href="pricing.html">💰 价格管理</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h2>💾 备份恢复</h2>
+            <p>管理数据库备份和恢复</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <!-- 备份 -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">📥 下载备份</h3>
+                </div>
+                <div style="padding: 1rem;">
+                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                        下载当前数据库的完整备份文件。建议定期备份数据以防丢失。
+                    </p>
+                    <button class="btn btn-primary" onclick="downloadBackup()">
+                        📥 下载数据库备份
+                    </button>
+                </div>
+            </div>
+
+            <!-- 恢复 -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">📤 恢复数据</h3>
+                </div>
+                <div style="padding: 1rem;">
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                        从备份文件恢复数据库。
+                    </p>
+                    <div
+                        style="padding: 1rem; background: rgba(245, 87, 108, 0.1); border-radius: var(--radius-md); margin-bottom: 1rem;">
+                        <div style="color: var(--accent-orange); font-weight: 600;">⚠️ 警告</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                            恢复操作将覆盖当前所有数据，此操作不可撤销！
+                        </div>
+                    </div>
+                    <input type="file" id="restoreFile" accept=".db" style="display: none;">
+                    <button class="btn btn-ghost" style="color: var(--accent-orange);" onclick="selectRestoreFile()">
+                        📤 选择备份文件恢复
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作日志 -->
+        <div class="card" style="margin-top: 2rem;">
+            <div class="card-header">
+                <h3 class="card-title">📋 操作说明</h3>
+            </div>
+            <div style="padding: 1rem; font-size: 0.9rem; color: var(--text-secondary);">
+                <ul style="list-style: disc; padding-left: 1.5rem; line-height: 1.8;">
+                    <li>备份文件为 SQLite 数据库格式 (.db)</li>
+                    <li>建议每天至少进行一次备份</li>
+                    <li>恢复数据后需要刷新页面查看最新数据</li>
+                    <li>如遇服务器重启，请等待服务恢复后再操作</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // 下载备份
+        function downloadBackup() {
+            window.location.href = '/api/backup/download';
+            utils.showToast('备份下载已开始');
+        }
+
+        // 选择恢复文件
+        function selectRestoreFile() {
+            document.getElementById('restoreFile').click();
+        }
+
+        // 文件选择后上传
+        document.getElementById('restoreFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!file.name.endsWith('.db')) {
+                utils.showToast('请选择 .db 格式的数据库文件', 'error');
+                return;
+            }
+
+            const confirmMsg = `确定要从 "${file.name}" 恢复数据库吗？\n\n⚠️ 此操作将覆盖当前所有数据！`;
+            if (!confirm(confirmMsg)) {
+                e.target.value = '';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('database', file);
+
+            try {
+                const response = await fetch('/api/backup/restore', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    utils.showToast('数据库恢复成功！页面将刷新...');
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    utils.showToast('恢复失败: ' + result.error, 'error');
+                }
+            } catch (error) {
+                utils.showToast('恢复失败: ' + error.message, 'error');
+            }
+
+            e.target.value = '';
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登记工单 - 迈捷手机内部流程管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <span class="logo">📱</span>
+            <h1>手机维修管理</h1>
+        </a>
+        <ul class="navbar-menu">
+            <li><a href="index.html">🏠 首页</a></li>
+            <li><a href="register.html" class="active">📝 登记</a></li>
+            <li><a href="front-desk.html">📺 前台看板</a></li>
+            <li><a href="repair.html">🔧 维修看板</a></li>
+            <li><a href="customers.html">👥 客户</a></li>
+            <li><a href="pricing.html">💰 价格管理</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h2>📝 新建工单</h2>
+            <p>登记客户设备维修信息</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+            <!-- 登记表单 -->
+            <div class="card">
+                <!-- OCR 扫描区域 -->
+                <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
+                    <h3 class="card-title">📷 拍照识别 (可选)</h3>
+                </div>
+                <div
+                    style="margin-bottom: 1.5rem; padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); border: 1px dashed var(--border-glass);">
+                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                        <input type="file" id="ocrImageInput" accept="image/*" capture="environment"
+                            style="display: none;">
+                        <button type="button" class="btn btn-ghost"
+                            onclick="document.getElementById('ocrImageInput').click()">
+                            📷 拍照/选择图片
+                        </button>
+                        <button type="button" class="btn btn-primary" id="ocrRecognizeBtn" style="display: none;"
+                            onclick="recognizeImage()">
+                            🔍 识别手写内容
+                        </button>
+                        <span id="ocrFileName" style="font-size: 0.85rem; color: var(--text-muted);"></span>
+                    </div>
+                    <div id="ocrPreview" style="display: none; margin-top: 1rem;">
+                        <img id="ocrPreviewImg"
+                            style="max-width: 100%; max-height: 200px; border-radius: var(--radius-sm);">
+                    </div>
+                    <div id="ocrStatus"
+                        style="display: none; margin-top: 1rem; padding: 0.75rem; background: rgba(102, 126, 234, 0.1); border-radius: var(--radius-sm); font-size: 0.9rem;">
+                        <span class="loading">🔄 正在识别中，请稍候...</span>
+                    </div>
+                </div>
+
+                <form id="registerForm">
+                    <!-- 客户信息 -->
+                    <div class="card-header">
+                        <h3 class="card-title">👤 客户信息</h3>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">客户姓名</label>
+                            <input type="text" class="form-control" id="customerName" placeholder="请输入姓名">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">联系电话</label>
+                            <input type="tel" class="form-control" id="customerPhone" placeholder="请输入手机号">
+                            <button type="button" class="btn btn-sm btn-ghost" style="margin-top: 0.5rem;"
+                                onclick="searchCustomer()">
+                                🔍 查询历史
+                            </button>
+                        </div>
+                    </div>
+
+
+                    <!-- 设备信息与维修项目 (整合) -->
+                    <div class="card-header" style="margin-top: 1rem;">
+                        <h3 class="card-title">📱 设备信息与维修项目</h3>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">设备品牌 *</label>
+                            <select class="form-control" id="deviceBrand" required onchange="onDeviceBrandChange()">
+                                <option value="">选择品牌</option>
+                                <!-- 动态加载品牌 -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">设备型号 *</label>
+                            <div style="position: relative;">
+                                <select class="form-control" id="deviceModelSelect"
+                                    onchange="onDeviceModelSelectChange()" style="margin-bottom: 0.5rem;">
+                                    <option value="">选择型号或手动输入</option>
+                                </select>
+                                <input type="text" class="form-control" id="deviceModel" required
+                                    placeholder="输入型号 (如：iPhone 15 Pro)" oninput="onDeviceModelInputChange()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 可选维修项目 -->
+                    <div class="form-group">
+                        <label class="form-label">可选维修项目 <span
+                                style="font-size: 0.85rem; color: var(--text-muted);">(点击添加到故障描述)</span></label>
+                        <div id="repairOptionsContainer"
+                            style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; min-height: 40px; padding: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-md); border: 1px dashed var(--border-glass);">
+                            <span style="color: var(--text-muted); font-size: 0.9rem;">请先选择设备品牌和型号</span>
+                        </div>
+                    </div>
+
+                    <!-- 设备密码信息 -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">🔐 设备密码</label>
+                            <input type="text" class="form-control" id="devicePassword" placeholder="输入数字/字母密码">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">📐 九宫格图案密码</label>
+                            <div class="pattern-lock-container">
+                                <div class="pattern-lock" id="patternLock">
+                                    <svg class="pattern-line" id="patternSvg"></svg>
+                                    <div class="pattern-dot" data-index="0"></div>
+                                    <div class="pattern-dot" data-index="1"></div>
+                                    <div class="pattern-dot" data-index="2"></div>
+                                    <div class="pattern-dot" data-index="3"></div>
+                                    <div class="pattern-dot" data-index="4"></div>
+                                    <div class="pattern-dot" data-index="5"></div>
+                                    <div class="pattern-dot" data-index="6"></div>
+                                    <div class="pattern-dot" data-index="7"></div>
+                                    <div class="pattern-dot" data-index="8"></div>
+                                </div>
+                                <div class="pattern-actions">
+                                    <span class="pattern-result" id="patternResult">未设置</span>
+                                    <button type="button" class="btn btn-sm btn-ghost"
+                                        onclick="clearPattern()">清除</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 设备状态 -->
+                    <div class="form-group">
+                        <label class="form-label">📱 设备是否开机</label>
+                        <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="devicePowerOn" value="是"
+                                    style="width: 18px; height: 18px; accent-color: var(--accent-green);">
+                                <span style="color: var(--accent-green);">✓ 是</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="devicePowerOn" value="否"
+                                    style="width: 18px; height: 18px; accent-color: var(--accent-orange);">
+                                <span style="color: var(--accent-orange);">✗ 否</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="devicePowerOn" value="" checked
+                                    style="width: 18px; height: 18px;">
+                                <span style="color: var(--text-muted);">未知</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 是否需要订货 -->
+                    <div class="form-group">
+                        <label class="form-label">📦 是否需要订货</label>
+                        <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="needsOrdering" value="是" onchange="toggleOrderChannel()"
+                                    style="width: 18px; height: 18px; accent-color: var(--accent-orange);">
+                                <span style="color: var(--accent-orange);">📦 是</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="needsOrdering" value="否" checked
+                                    onchange="toggleOrderChannel()"
+                                    style="width: 18px; height: 18px; accent-color: var(--accent-green);">
+                                <span style="color: var(--accent-green);">✓ 否</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 订货渠道 (仅在需要订货时显示) -->
+                    <div class="form-group" id="orderChannelGroup" style="display: none;">
+                        <label class="form-label">🛒 订货渠道</label>
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="orderChannel" value="it-ricambi"
+                                    style="width: 18px; height: 18px; accent-color: var(--accent-blue);">
+                                <span>it-ricambi</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="orderChannel" value="37smart"
+                                    style="width: 18px; height: 18px; accent-color: var(--accent-blue);">
+                                <span>37smart</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="orderChannel" value="Amazon"
+                                    style="width: 18px; height: 18px; accent-color: var(--accent-blue);">
+                                <span>Amazon</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="orderChannel" value="其它" onchange="toggleCustomChannel()"
+                                    style="width: 18px; height: 18px; accent-color: var(--accent-purple);">
+                                <span>其它</span>
+                            </label>
+                        </div>
+                        <input type="text" class="form-control" id="customOrderChannel"
+                            style="display: none; margin-top: 0.5rem;" placeholder="请输入其它渠道名称...">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">故障描述 *</label>
+                        <textarea class="form-control" id="problem" required placeholder="请详细描述设备问题..."></textarea>
+                    </div>
+
+                    <!-- 费用信息 -->
+                    <div class="card-header" style="margin-top: 1rem;">
+                        <h3 class="card-title">💰 费用预估</h3>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">预估价格</label>
+                            <div class="price-input">
+                                <input type="number" class="form-control" id="estimatedPrice" placeholder="0.00"
+                                    step="0.01" min="0" oninput="updateAmountDue()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">押金</label>
+                            <div class="price-input">
+                                <input type="number" class="form-control" id="deposit" placeholder="0.00" step="0.01"
+                                    min="0" oninput="updateAmountDue()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">应收</label>
+                            <div
+                                style="padding: 0.875rem 1rem; background: var(--bg-glass); border: 1px solid var(--border-glass); border-radius: var(--radius-md); font-size: 1.1rem; font-weight: 600; color: var(--accent-green);">
+                                €<span id="amountDue">0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">预计完成日期</label>
+                            <input type="date" class="form-control" id="estimatedDate">
+                        </div>
+                    </div>
+
+                    <!-- 已选项目 -->
+                    <div id="selectedItems" style="display: none;">
+                        <label class="form-label">已选项目</label>
+                        <div id="selectedItemsList" style="margin-top: 0.5rem;"></div>
+                    </div>
+
+                    <div style="margin-top: 2rem;">
+                        <button type="submit" class="btn btn-primary btn-block">
+                            ✓ 提交工单
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 右侧面板 -->
+            <div>
+                <!-- 客户历史 -->
+                <div class="card" id="customerHistory" style="display: none;">
+                    <div class="card-header">
+                        <h3 class="card-title">📋 客户历史</h3>
+                    </div>
+                    <div id="customerHistoryContent"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <script src="js/api.js"></script>
+        <script src="js/app.js"></script>
+        <script>
+            let selectedItems = [];
+            let patternSequence = [];
+            let isDrawing = false;
+            let selectedOcrFile = null;
+
+            // =============== OCR 图片识别功能 ===============
+            document.getElementById('ocrImageInput').addEventListener('change', function (e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                selectedOcrFile = file;
+                document.getElementById('ocrFileName').textContent = file.name;
+                document.getElementById('ocrRecognizeBtn').style.display = 'inline-flex';
+
+                // 显示预览
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    document.getElementById('ocrPreviewImg').src = e.target.result;
+                    document.getElementById('ocrPreview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // 识别图片
+            async function recognizeImage() {
+                if (!selectedOcrFile) {
+                    utils.showToast('请先选择图片', 'error');
+                    return;
+                }
+
+                const statusEl = document.getElementById('ocrStatus');
+                statusEl.style.display = 'block';
+                statusEl.innerHTML = '<span class="loading">🔄 正在识别中，请稍候...</span>';
+
+                try {
+                    const result = await API.ocr.recognize(selectedOcrFile);
+
+                    if (result.success && result.data) {
+                        const data = result.data;
+
+                        // 自动填充表单字段
+                        if (data.customer_name) {
+                            document.getElementById('customerName').value = data.customer_name;
+                        }
+                        if (data.customer_phone) {
+                            document.getElementById('customerPhone').value = data.customer_phone;
+                        }
+                        if (data.device_brand) {
+                            // 尝试匹配下拉菜单中的值
+                            const brandSelect = document.getElementById('deviceBrand');
+                            const options = Array.from(brandSelect.options);
+                            const matchedOption = options.find(opt =>
+                                opt.value.toLowerCase() === data.device_brand.toLowerCase()
+                            );
+                            if (matchedOption) {
+                                brandSelect.value = matchedOption.value;
+                            } else {
+                                brandSelect.value = '其他';
+                            }
+                        }
+                        if (data.device_model) {
+                            document.getElementById('deviceModel').value = data.device_model;
+                        }
+                        if (data.problem) {
+                            document.getElementById('problem').value = data.problem;
+                        }
+                        if (data.estimated_price && !isNaN(parseFloat(data.estimated_price))) {
+                            document.getElementById('estimatedPrice').value = parseFloat(data.estimated_price);
+                        }
+
+                        statusEl.innerHTML = '<span style="color: var(--accent-green);">✅ 识别成功！已自动填充表单</span>';
+                        utils.showToast('识别成功，已自动填充表单');
+                    } else {
+                        statusEl.innerHTML = `<span style="color: var(--accent-orange);">⚠️ 识别完成但无法解析：${result.raw_content || '未知结果'}</span>`;
+                        utils.showToast('识别完成但无法自动填充', 'error');
+                    }
+                } catch (error) {
+                    statusEl.innerHTML = `<span style="color: var(--accent-orange);">❌ 识别失败：${error.message}</span>`;
+                    utils.showToast('识别失败：' + error.message, 'error');
+                }
+            }
+
+            // 更新应收金额
+            function updateAmountDue() {
+                const estimatedPrice = parseFloat(document.getElementById('estimatedPrice').value) || 0;
+                const deposit = parseFloat(document.getElementById('deposit').value) || 0;
+                const amountDue = Math.max(0, estimatedPrice - deposit);
+                document.getElementById('amountDue').textContent = amountDue.toFixed(2);
+            }
+
+            // 加载品牌列表到设备品牌下拉框
+            let allBrands = [];
+            let availableItems = [];
+
+            async function loadDeviceBrands() {
+                try {
+                    allBrands = await API.pricing.getBrands();
+                    const brandSelect = document.getElementById('deviceBrand');
+                    brandSelect.innerHTML = '<option value="">选择品牌</option>' +
+                        allBrands.map(brand => `<option value="${brand}">${brand}</option>`).join('') +
+                        '<option value="其他">其他</option>';
+                } catch (error) {
+                    console.error('加载品牌失败:', error);
+                    // 如果API失败，使用默认品牌列表
+                    const brandSelect = document.getElementById('deviceBrand');
+                    brandSelect.innerHTML = `
+                    <option value="">选择品牌</option>
+                    <option value="Apple">Apple</option>
+                    <option value="Samsung">Samsung</option>
+                    <option value="Huawei">Huawei</option>
+                    <option value="Xiaomi">Xiaomi</option>
+                    <option value="OPPO">OPPO</option>
+                    <option value="vivo">vivo</option>
+                    <option value="OnePlus">OnePlus</option>
+                    <option value="其他">其他</option>
+                `;
+                }
+            }
+
+            // 设备品牌改变时
+            async function onDeviceBrandChange() {
+                const brand = document.getElementById('deviceBrand').value;
+                const modelSelect = document.getElementById('deviceModelSelect');
+                const modelInput = document.getElementById('deviceModel');
+                const repairContainer = document.getElementById('repairOptionsContainer');
+
+                // 重置型号
+                modelSelect.innerHTML = '<option value="">选择型号或手动输入</option>';
+                modelInput.value = '';
+                repairContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.9rem;">请先选择设备品牌和型号</span>';
+
+                if (!brand || brand === '其他') {
+                    // 如果选择"其他"，只允许手动输入
+                    return;
+                }
+
+                try {
+                    const models = await API.pricing.getModelsByBrand(brand);
+                    modelSelect.innerHTML = '<option value="">选择型号或手动输入</option>' +
+                        models.map(model => `<option value="${model}">${model}</option>`).join('');
+                } catch (error) {
+                    console.error('加载型号失败:', error);
+                }
+            }
+
+            // 型号下拉选择改变时
+            function onDeviceModelSelectChange() {
+                const selectedModel = document.getElementById('deviceModelSelect').value;
+                const modelInput = document.getElementById('deviceModel');
+
+                if (selectedModel) {
+                    modelInput.value = selectedModel;
+                    loadRepairOptions();
+                }
+            }
+
+            // 型号手动输入改变时
+            function onDeviceModelInputChange() {
+                // 延迟加载维修选项，避免频繁请求
+                clearTimeout(window.modelInputTimeout);
+                window.modelInputTimeout = setTimeout(() => {
+                    loadRepairOptions();
+                }, 500);
+            }
+
+            // 加载维修选项
+            async function loadRepairOptions() {
+                const brand = document.getElementById('deviceBrand').value;
+                const model = document.getElementById('deviceModel').value.trim();
+                const repairContainer = document.getElementById('repairOptionsContainer');
+
+                if (!brand || !model) {
+                    repairContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.9rem;">请先选择设备品牌和型号</span>';
+                    return;
+                }
+
+                try {
+                    availableItems = await API.pricing.getItemsByBrandModel(brand, model);
+
+                    if (availableItems.length === 0) {
+                        repairContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.9rem;">无可用维修项目，请手动填写故障描述</span>';
+                        return;
+                    }
+
+                    repairContainer.innerHTML = availableItems.map((item, index) => {
+                        const categoryDisplay = item.name_it ? `${item.category} / ${item.name_it}` : item.category;
+                        return `
+                        <button type="button" class="tag repair-option-btn" onclick="addRepairToProblem(${index})" 
+                            style="cursor: pointer; transition: all 0.2s ease;">
+                            ${categoryDisplay} €${item.price}
+                        </button>
+                    `;
+                    }).join('');
+
+                } catch (error) {
+                    console.error('加载维修项目失败:', error);
+                    repairContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.9rem;">无可用维修项目，请手动填写故障描述</span>';
+                }
+            }
+
+            // 点击维修选项，添加到故障描述和价格
+            function addRepairToProblem(index) {
+                const item = availableItems[index];
+                const brand = document.getElementById('deviceBrand').value;
+                const model = document.getElementById('deviceModel').value.trim();
+                const problemTextarea = document.getElementById('problem');
+                const estimatedPriceInput = document.getElementById('estimatedPrice');
+
+                // 构建显示文本
+                const categoryDisplay = item.name_it ? `${item.category} / ${item.name_it}` : item.category;
+                const repairText = `${brand} ${model} - ${categoryDisplay}`;
+
+                // 添加到故障描述
+                const currentProblem = problemTextarea.value.trim();
+                if (currentProblem) {
+                    problemTextarea.value = currentProblem + '\n' + repairText;
+                } else {
+                    problemTextarea.value = repairText;
+                }
+
+                // 添加到预估价格
+                const currentPrice = parseFloat(estimatedPriceInput.value) || 0;
+                estimatedPriceInput.value = (currentPrice + item.price).toFixed(2);
+                updateAmountDue();
+
+                // 添加到已选项目列表
+                if (!selectedItems.find(i => i.pricing_id === item.id)) {
+                    selectedItems.push({
+                        pricing_id: item.id,
+                        name: repairText,
+                        price: item.price,
+                        quantity: 1
+                    });
+                    updateSelectedItems();
+                }
+
+                // 视觉反馈
+                utils.showToast(`已添加: ${categoryDisplay} €${item.price}`);
+            }
+
+            // 更新已选项目显示
+            function updateSelectedItems() {
+                const container = document.getElementById('selectedItems');
+                const list = document.getElementById('selectedItemsList');
+
+                if (selectedItems.length === 0) {
+                    container.style.display = 'none';
+                    return;
+                }
+
+                container.style.display = 'block';
+                list.innerHTML = selectedItems.map((item, index) => `
+                <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--bg-glass); border-radius: var(--radius-sm); margin-bottom: 0.5rem;">
+                    <span style="flex: 1;">${item.name}</span>
+                    <span style="color: var(--accent-green);">€${item.price}</span>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="removeItem(${index})">✕</button>
+                </div>
+            `).join('');
+            }
+
+            // 移除项目
+            function removeItem(index) {
+                const item = selectedItems[index];
+                const btn = document.getElementById(`item-${item.pricing_id}`);
+                if (btn) {
+                    btn.style.background = '';
+                    btn.style.borderColor = '';
+                }
+                selectedItems.splice(index, 1);
+                updateSelectedItems();
+                updateTotalPrice();
+            }
+
+            // 更新总价
+            function updateTotalPrice() {
+                const total = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+                if (total > 0 && !document.getElementById('estimatedPrice').value) {
+                    document.getElementById('estimatedPrice').value = total.toFixed(2);
+                }
+            }
+
+            // 查询客户历史
+            async function searchCustomer() {
+                const phone = document.getElementById('customerPhone').value.trim();
+                if (!phone) {
+                    utils.showToast('请输入手机号', 'error');
+                    return;
+                }
+
+                try {
+                    const customer = await API.customers.getByPhone(phone);
+                    document.getElementById('customerName').value = customer.name;
+
+                    const container = document.getElementById('customerHistory');
+                    const content = document.getElementById('customerHistoryContent');
+
+                    container.style.display = 'block';
+                    content.innerHTML = `
+                    <div style="margin-bottom: 1rem;">
+                        <div style="font-weight: 600;">${customer.name}</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">${customer.phone}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">
+                            共 ${customer.total_orders} 次维修 | 消费 €${customer.total_spent.toFixed(2)}
+                        </div>
+                    </div>
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        ${customer.orders.map(order => `
+                            <div style="padding: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-sm); margin-bottom: 0.5rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 0.85rem; color: var(--accent-purple);">${order.order_no}</span>
+                                    <span class="status-badge ${order.status}" style="font-size: 0.7rem;">${order.status}</span>
+                                </div>
+                                <div style="font-size: 0.85rem; margin-top: 0.25rem;">${order.device_brand} ${order.device_model}</div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">${order.problem.substring(0, 30)}...</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                    utils.showToast('找到客户历史记录');
+                } catch (error) {
+                    document.getElementById('customerHistory').style.display = 'none';
+                    if (error.message.includes('不存在')) {
+                        utils.showToast('新客户，无历史记录', 'error');
+                    } else {
+                        utils.showToast('查询失败', 'error');
+                    }
+                }
+            }
+
+            // 表单提交
+            document.getElementById('registerForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const needsOrdering = document.querySelector('input[name="needsOrdering"]:checked')?.value === '是';
+
+                const data = {
+                    customer_name: document.getElementById('customerName').value.trim(),
+                    customer_phone: document.getElementById('customerPhone').value.trim(),
+                    device_brand: document.getElementById('deviceBrand').value,
+                    device_model: document.getElementById('deviceModel').value.trim(),
+                    device_password: document.getElementById('devicePassword').value.trim(),
+                    pattern_password: patternSequence.join(','),
+                    device_power_on: document.querySelector('input[name="devicePowerOn"]:checked')?.value || '',
+                    problem: document.getElementById('problem').value.trim(),
+                    estimated_price: parseFloat(document.getElementById('estimatedPrice').value) || 0,
+                    deposit: parseFloat(document.getElementById('deposit').value) || 0,
+                    estimated_date: document.getElementById('estimatedDate').value || null,
+                    items: selectedItems,
+                    status: needsOrdering ? '等待订货' : '待维修',
+                    order_channel: getOrderChannel(),
+                };
+
+                try {
+                    const result = await API.orders.create(data);
+                    utils.showToast(`工单创建成功！工单号：${result.order_no}`);
+
+                    // 询问是否打印
+                    if (confirm(`工单创建成功！\n工单号：${result.order_no}\n\n是否打印工单？`)) {
+                        const order = await API.orders.getById(result.id);
+                        utils.printOrder(order);
+                    }
+
+                    // 重置表单
+                    e.target.reset();
+                    selectedItems = [];
+                    updateSelectedItems();
+                    document.getElementById('customerHistory').style.display = 'none';
+                    clearPattern();
+
+                    // 重置维修选项显示
+                    document.getElementById('repairOptionsContainer').innerHTML = '<span style="color: var(--text-muted); font-size: 0.9rem;">请先选择设备品牌和型号</span>';
+                    document.getElementById('deviceModelSelect').innerHTML = '<option value="">选择型号或手动输入</option>';
+
+                    // 重置订货渠道
+                    document.getElementById('orderChannelGroup').style.display = 'none';
+                    document.querySelectorAll('input[name="orderChannel"]').forEach(r => r.checked = false);
+                    document.getElementById('customOrderChannel').value = '';
+
+                } catch (error) {
+                    utils.showToast('创建失败：' + error.message, 'error');
+                }
+            });
+
+            // 切换订货渠道显示
+            function toggleOrderChannel() {
+                const needsOrdering = document.querySelector('input[name="needsOrdering"]:checked')?.value === '是';
+                const channelGroup = document.getElementById('orderChannelGroup');
+                channelGroup.style.display = needsOrdering ? 'block' : 'none';
+
+                // 如果不需要订货，清除订货渠道选择
+                if (!needsOrdering) {
+                    document.querySelectorAll('input[name="orderChannel"]').forEach(r => r.checked = false);
+                    document.getElementById('customOrderChannel').value = '';
+                    document.getElementById('customOrderChannel').style.display = 'none';
+                }
+            }
+
+            // 切换自定义渠道输入框
+            function toggleCustomChannel() {
+                const selected = document.querySelector('input[name="orderChannel"]:checked')?.value;
+                const customInput = document.getElementById('customOrderChannel');
+                customInput.style.display = selected === '其它' ? 'block' : 'none';
+                if (selected !== '其它') {
+                    customInput.value = '';
+                }
+            }
+
+            // 获取订货渠道
+            function getOrderChannel() {
+                const needsOrdering = document.querySelector('input[name="needsOrdering"]:checked')?.value === '是';
+                if (!needsOrdering) return '';
+
+                const selected = document.querySelector('input[name="orderChannel"]:checked')?.value || '';
+                if (selected === '其它') {
+                    return document.getElementById('customOrderChannel').value.trim() || '其它';
+                }
+                return selected;
+            }
+
+            // 页面初始化
+            loadDeviceBrands();
+
+            // 设置默认预计完成日期为明天
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('estimatedDate').value = tomorrow.toISOString().split('T')[0];
+
+            // =============== 九宫格图案密码逻辑 ===============
+            const patternLock = document.getElementById('patternLock');
+            const patternSvg = document.getElementById('patternSvg');
+            const patternDots = document.querySelectorAll('.pattern-dot');
+            const patternResult = document.getElementById('patternResult');
+
+            // 获取点的中心坐标
+            function getDotCenter(dot) {
+                const rect = dot.getBoundingClientRect();
+                const lockRect = patternLock.getBoundingClientRect();
+                return {
+                    x: rect.left - lockRect.left + rect.width / 2,
+                    y: rect.top - lockRect.top + rect.height / 2
+                };
+            }
+
+            // 绘制连线
+            function drawLines() {
+                patternSvg.innerHTML = '';
+                for (let i = 0; i < patternSequence.length - 1; i++) {
+                    const dot1 = document.querySelector(`.pattern-dot[data-index="${patternSequence[i]}"]`);
+                    const dot2 = document.querySelector(`.pattern-dot[data-index="${patternSequence[i + 1]}"]`);
+                    const p1 = getDotCenter(dot1);
+                    const p2 = getDotCenter(dot2);
+
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', p1.x);
+                    line.setAttribute('y1', p1.y);
+                    line.setAttribute('x2', p2.x);
+                    line.setAttribute('y2', p2.y);
+                    patternSvg.appendChild(line);
+                }
+            }
+
+            // 更新显示结果
+            function updatePatternResult() {
+                if (patternSequence.length === 0) {
+                    patternResult.textContent = '未设置';
+                    patternResult.classList.remove('has-value');
+                } else {
+                    patternResult.textContent = patternSequence.map(i => i + 1).join(' → ');
+                    patternResult.classList.add('has-value');
+                }
+            }
+
+            // 添加点到序列
+            function addDotToSequence(index) {
+                if (!patternSequence.includes(index)) {
+                    patternSequence.push(index);
+                    const dot = document.querySelector(`.pattern-dot[data-index="${index}"]`);
+                    dot.classList.add('active');
+                    drawLines();
+                    updatePatternResult();
+                }
+            }
+
+            // 清除图案
+            function clearPattern() {
+                patternSequence = [];
+                patternDots.forEach(dot => dot.classList.remove('active'));
+                patternSvg.innerHTML = '';
+                updatePatternResult();
+            }
+
+            // 点击事件
+            patternDots.forEach(dot => {
+                dot.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    isDrawing = true;
+                    addDotToSequence(parseInt(dot.dataset.index));
+                });
+
+                dot.addEventListener('mouseenter', () => {
+                    if (isDrawing) {
+                        addDotToSequence(parseInt(dot.dataset.index));
+                    }
+                });
+
+                // 触摸事件
+                dot.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    isDrawing = true;
+                    addDotToSequence(parseInt(dot.dataset.index));
+                });
+            });
+
+            // 触摸移动
+            patternLock.addEventListener('touchmove', (e) => {
+                if (!isDrawing) return;
+                const touch = e.touches[0];
+                const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (element && element.classList.contains('pattern-dot')) {
+                    addDotToSequence(parseInt(element.dataset.index));
+                }
+            });
+
+            // 结束绘制
+            document.addEventListener('mouseup', () => {
+                isDrawing = false;
+            });
+
+            document.addEventListener('touchend', () => {
+                isDrawing = false;
+            });
+        </script>
+</body>
+
+</html>

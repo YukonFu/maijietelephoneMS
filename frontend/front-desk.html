@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>前台看板 - 迈捷手机内部流程管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <span class="logo">📱</span>
+            <h1>手机维修管理</h1>
+        </a>
+        <ul class="navbar-menu">
+            <li><a href="index.html">🏠 首页</a></li>
+            <li><a href="register.html">📝 登记</a></li>
+            <li><a href="front-desk.html" class="active">📺 前台看板</a></li>
+            <li><a href="repair.html">🔧 维修看板</a></li>
+            <li><a href="customers.html">👥 客户</a></li>
+            <li><a href="pricing.html">💰 价格管理</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2>📺 前台看板</h2>
+                <p>实时查看所有工单状态 <span style="font-size: 0.85rem; color: var(--text-muted);">(已完成仅显示3天内)</span></p>
+            </div>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <a href="history.html" class="btn btn-ghost">📋 查询以往维修记录</a>
+                <div class="search-box">
+                    <span>🔍</span>
+                    <input type="text" id="searchInput" placeholder="搜索工单号、客户姓名或电话...">
+                </div>
+            </div>
+        </div>
+
+        <!-- 看板 -->
+        <div class="kanban-container">
+            <div class="kanban-column" data-status="等待订货">
+                <div class="kanban-column-header">
+                    <span>📦</span>
+                    <span class="kanban-column-title">等待订货</span>
+                    <span class="kanban-column-count" id="count-等待订货">0</span>
+                </div>
+                <div class="kanban-cards" id="cards-等待订货"></div>
+            </div>
+
+            <div class="kanban-column" data-status="待维修">
+                <div class="kanban-column-header">
+                    <span>⏳</span>
+                    <span class="kanban-column-title">待维修</span>
+                    <span class="kanban-column-count" id="count-待维修">0</span>
+                </div>
+                <div class="kanban-cards" id="cards-待维修"></div>
+            </div>
+
+            <div class="kanban-column" data-status="维修中">
+                <div class="kanban-column-header">
+                    <span>🔧</span>
+                    <span class="kanban-column-title">维修中</span>
+                    <span class="kanban-column-count" id="count-维修中">0</span>
+                </div>
+                <div class="kanban-cards" id="cards-维修中"></div>
+            </div>
+
+            <div class="kanban-column" data-status="待取机">
+                <div class="kanban-column-header">
+                    <span>📦</span>
+                    <span class="kanban-column-title">待取机</span>
+                    <span class="kanban-column-count" id="count-待取机">0</span>
+                </div>
+                <div class="kanban-cards" id="cards-待取机"></div>
+            </div>
+
+            <div class="kanban-column" data-status="已完成">
+                <div class="kanban-column-header">
+                    <span>✅</span>
+                    <span class="kanban-column-title">已完成</span>
+                    <span class="kanban-column-count" id="count-已完成">0</span>
+                </div>
+                <div class="kanban-cards" id="cards-已完成"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 工单详情模态框 -->
+    <div class="modal-overlay" id="orderModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>工单详情</h3>
+                <button class="modal-close" onclick="closeModal('orderModal')">&times;</button>
+            </div>
+            <form id="orderEditForm">
+                <div id="orderModalContent"></div>
+
+                <!-- 编辑区域 -->
+                <div class="card" style="margin: 1rem; padding: 1rem; border: 2px solid var(--accent-orange);">
+                    <div style="font-weight: 600; margin-bottom: 1rem; color: var(--accent-orange);">📦 订货与状态编辑</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">当前状态</label>
+                            <select class="form-control" id="editOrderStatus">
+                                <option value="等待订货">等待订货</option>
+                                <option value="待维修">待维修</option>
+                                <option value="维修中">维修中</option>
+                                <option value="待取机">待取机</option>
+                                <option value="已完成">已完成</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">🛒 订货渠道</label>
+                            <select class="form-control" id="editOrderChannel"
+                                onchange="toggleFrontDeskCustomChannel()">
+                                <option value="">无</option>
+                                <option value="it-ricambi">it-ricambi</option>
+                                <option value="37smart">37smart</option>
+                                <option value="Amazon">Amazon</option>
+                                <option value="其它">其它</option>
+                            </select>
+                        </div>
+                    </div>
+                    <input type="text" class="form-control" id="editCustomChannel"
+                        style="display: none; margin-top: 0.5rem;" placeholder="请输入其它渠道名称...">
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('orderModal')">关闭</button>
+                    <button type="button" class="btn btn-warning" id="printOrderBtn">🖨️ 打印</button>
+                    <button type="submit" class="btn btn-primary">💾 保存修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        let allOrders = [];
+        let currentOrder = null;
+        let draggedCard = null;
+
+        // 格式化图案密码显示
+        function formatPatternPassword(pattern) {
+            if (!pattern) return '';
+            return pattern.split(',').map(i => parseInt(i) + 1).join(' → ');
+        }
+
+        // 设置拖拽
+        function setupDragAndDrop(container) {
+            const cards = container.querySelectorAll('.order-card');
+
+            cards.forEach(card => {
+                card.addEventListener('dragstart', (e) => {
+                    draggedCard = card;
+                    card.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('dragging');
+                    draggedCard = null;
+                    document.querySelectorAll('.kanban-cards').forEach(c => c.classList.remove('drag-over'));
+                });
+            });
+
+            container.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                container.classList.add('drag-over');
+            });
+
+            container.addEventListener('dragleave', () => {
+                container.classList.remove('drag-over');
+            });
+
+            container.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                container.classList.remove('drag-over');
+
+                if (!draggedCard) return;
+
+                const newStatus = container.closest('.kanban-column').dataset.status;
+                const orderId = parseInt(draggedCard.dataset.id);
+                const oldStatus = draggedCard.dataset.status;
+
+                if (newStatus !== oldStatus) {
+                    try {
+                        await API.orders.updateStatus(orderId, newStatus);
+                        utils.showToast(`状态已更新为"${newStatus}"`);
+                        loadOrders();
+                    } catch (error) {
+                        utils.showToast('更新失败', 'error');
+                    }
+                }
+            });
+        }
+
+        // 加载工单
+        async function loadOrders(search = '') {
+            try {
+                const params = search ? { search } : {};
+                allOrders = await API.orders.getAll(params);
+                renderKanban();
+            } catch (error) {
+                console.error('加载工单失败:', error);
+                utils.showToast('加载失败', 'error');
+            }
+        }
+
+        // 渲染看板
+        function renderKanban() {
+            const statuses = ['等待订货', '待维修', '维修中', '待取机', '已完成'];
+            const threeDaysAgo = new Date();
+            threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+            statuses.forEach(status => {
+                const container = document.getElementById(`cards-${status}`);
+                const countEl = document.getElementById(`count-${status}`);
+
+                // 已完成的工单只显示3天内的
+                let orders = allOrders.filter(o => o.status === status);
+                if (status === '已完成') {
+                    orders = orders.filter(o => new Date(o.created_at) >= threeDaysAgo);
+                }
+
+                countEl.textContent = orders.length;
+
+                if (orders.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>暂无工单</p></div>';
+                } else {
+                    container.innerHTML = orders.map(order => `
+                        <div class="order-card fade-in" draggable="true" data-id="${order.id}" data-status="${order.status}">
+                            <div class="order-card-header">
+                                <span class="order-no">${order.order_no}</span>
+                                <span class="order-time">${utils.formatDate(order.created_at)}</span>
+                            </div>
+                            <div class="order-device">${order.device_brand} ${order.device_model}</div>
+                            <div class="order-problem">${order.problem}</div>
+                            ${order.order_channel ? `<div style="margin-top: 0.5rem;"><span style="background: linear-gradient(135deg, rgba(245, 87, 108, 0.2), rgba(240, 147, 251, 0.2)); color: var(--accent-orange); padding: 0.2rem 0.5rem; border-radius: 10px; font-size: 0.75rem;">🛒 ${order.order_channel}</span></div>` : ''}
+                            <div class="order-customer">
+                                <span>👤 ${order.customer_name || '-'}</span>
+                                <span class="order-price">${utils.formatPrice(order.estimated_price)}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                setupDragAndDrop(container);
+            });
+
+            // 添加点击事件
+            document.querySelectorAll('.order-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    if (!e.target.closest('.dragging')) {
+                        showOrderDetail(parseInt(card.dataset.id));
+                    }
+                });
+            });
+        }
+
+        // 显示工单详情
+        async function showOrderDetail(id) {
+            try {
+                currentOrder = await API.orders.getById(id);
+                const content = document.getElementById('orderModalContent');
+
+                content.innerHTML = `
+                    <div style="display: grid; gap: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 1.5rem; font-weight: 600; color: var(--accent-purple);">${currentOrder.order_no}</div>
+                                <div style="color: var(--text-muted); font-size: 0.9rem;">创建于 ${utils.formatDate(currentOrder.created_at)}</div>
+                            </div>
+                            <span class="status-badge ${currentOrder.status}">${currentOrder.status}</span>
+                        </div>
+
+                        <div class="card" style="margin: 0; padding: 1rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">👤 客户信息</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9rem;">
+                                <div><span style="color: var(--text-muted);">姓名：</span>${currentOrder.customer_name || '-'}</div>
+                                <div><span style="color: var(--text-muted);">电话：</span>${currentOrder.customer_phone || '-'}</div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin: 0; padding: 1rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">📱 设备信息</div>
+                            <div style="font-size: 0.9rem;">
+                                <div><span style="color: var(--text-muted);">品牌型号：</span>${currentOrder.device_brand} ${currentOrder.device_model}</div>
+                                ${currentOrder.device_password ? `<div style="margin-top: 0.5rem;"><span style="color: var(--text-muted);">🔐 设备密码：</span><span style="color: var(--accent-blue); font-family: monospace;">${currentOrder.device_password}</span></div>` : ''}
+                                ${currentOrder.pattern_password ? `<div style="margin-top: 0.5rem;"><span style="color: var(--text-muted);">📐 图案密码：</span><span style="color: var(--accent-purple); font-family: monospace;">${formatPatternPassword(currentOrder.pattern_password)}</span></div>` : ''}
+                                ${currentOrder.device_power_on ? `<div style="margin-top: 0.5rem;"><span style="color: var(--text-muted);">📱 设备开机：</span><span style="color: ${currentOrder.device_power_on === '是' ? 'var(--accent-green)' : 'var(--accent-orange)'}; font-weight: 600;">${currentOrder.device_power_on}</span></div>` : ''}
+                                <div style="margin-top: 0.5rem;"><span style="color: var(--text-muted);">故障描述：</span></div>
+                                <div style="padding: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-sm); margin-top: 0.25rem;">
+                                    ${currentOrder.problem}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin: 0; padding: 1rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">💰 费用信息</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9rem;">
+                                <div><span style="color: var(--text-muted);">预估价格：</span><span style="color: var(--accent-green);">${utils.formatPrice(currentOrder.estimated_price)}</span></div>
+                                <div><span style="color: var(--text-muted);">押金：</span><span style="color: var(--accent-blue);">${utils.formatPrice(currentOrder.deposit || 0)}</span></div>
+                                <div><span style="color: var(--text-muted);">应收：</span><span style="color: var(--accent-purple); font-weight: 600;">${utils.formatPrice((currentOrder.estimated_price || 0) - (currentOrder.deposit || 0))}</span></div>
+                                <div><span style="color: var(--text-muted);">实际价格：</span><span style="color: var(--accent-green);">${utils.formatPrice(currentOrder.final_price)}</span></div>
+                                <div><span style="color: var(--text-muted);">预计完成：</span>${currentOrder.estimated_date || '-'}</div>
+                            </div>
+                        </div>
+
+                        ${currentOrder.repair_notes ? `
+                        <div class="card" style="margin: 0; padding: 1rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">📝 维修备注</div>
+                            <div style="padding: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-sm); font-size: 0.9rem;">
+                                ${currentOrder.repair_notes}
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        ${currentOrder.order_channel ? `
+                        <div class="card" style="margin: 0; padding: 1rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">📦 订货信息</div>
+                            <div style="font-size: 0.9rem;">
+                                <span style="color: var(--text-muted);">订货渠道：</span>
+                                <span style="color: var(--accent-orange); font-weight: 600;">${currentOrder.order_channel}</span>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+
+                // 设置编辑区域的值
+                document.getElementById('editOrderStatus').value = currentOrder.status;
+
+                // 设置订货渠道
+                const channel = currentOrder.order_channel || '';
+                const channelSelect = document.getElementById('editOrderChannel');
+                const customInput = document.getElementById('editCustomChannel');
+
+                if (channel && !['it-ricambi', '37smart', 'Amazon', ''].includes(channel)) {
+                    channelSelect.value = '其它';
+                    customInput.value = channel;
+                    customInput.style.display = 'block';
+                } else {
+                    channelSelect.value = channel;
+                    customInput.value = '';
+                    customInput.style.display = 'none';
+                }
+
+                openModal('orderModal');
+            } catch (error) {
+                utils.showToast('加载详情失败', 'error');
+            }
+        }
+
+        // 打印工单
+        document.getElementById('printOrderBtn').addEventListener('click', () => {
+            if (currentOrder) {
+                utils.printOrder(currentOrder);
+            }
+        });
+
+        // 切换自定义渠道输入框
+        function toggleFrontDeskCustomChannel() {
+            const selected = document.getElementById('editOrderChannel').value;
+            const customInput = document.getElementById('editCustomChannel');
+            customInput.style.display = selected === '其它' ? 'block' : 'none';
+            if (selected !== '其它') customInput.value = '';
+        }
+
+        // 获取编辑的订货渠道
+        function getEditedChannel() {
+            const selected = document.getElementById('editOrderChannel').value;
+            if (selected === '其它') {
+                return document.getElementById('editCustomChannel').value.trim() || '其它';
+            }
+            return selected;
+        }
+
+        // 保存编辑
+        document.getElementById('orderEditForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!currentOrder) return;
+
+            const data = {
+                status: document.getElementById('editOrderStatus').value,
+                order_channel: getEditedChannel(),
+            };
+
+            try {
+                await API.orders.update(currentOrder.id, data);
+                utils.showToast('保存成功');
+                closeModal('orderModal');
+                loadOrders();
+            } catch (error) {
+                utils.showToast('保存失败', 'error');
+            }
+        });
+
+        // 搜索
+        let searchTimeout;
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadOrders(e.target.value.trim());
+            }, 300);
+        });
+
+        // 自动刷新
+        setInterval(() => loadOrders(), 30000);
+
+        // 初始化
+        loadOrders();
+    </script>
+</body>
+
+</html>

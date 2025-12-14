@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>维修记录查询 - 迈捷手机内部流程管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <span class="logo">📱</span>
+            <h1>手机维修管理</h1>
+        </a>
+        <ul class="navbar-menu">
+            <li><a href="index.html">🏠 首页</a></li>
+            <li><a href="register.html">📝 登记</a></li>
+            <li><a href="front-desk.html">📺 前台看板</a></li>
+            <li><a href="repair.html">🔧 维修看板</a></li>
+            <li><a href="customers.html">👥 客户</a></li>
+            <li><a href="pricing.html">💰 价格管理</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h2>📋 维修记录查询</h2>
+            <p>查询和筛选所有历史维修工单</p>
+        </div>
+
+        <!-- 筛选栏 -->
+        <div class="card" style="margin-bottom: 1.5rem; padding: 1rem;">
+            <div class="form-row" style="margin-bottom: 0.5rem;">
+                <div class="form-group" style="margin-bottom: 0; flex: 2;">
+                    <label class="form-label" style="font-size: 0.85rem;">🔍 关键词搜索</label>
+                    <input type="text" class="form-control" id="searchKeyword" placeholder="工单号、客户姓名、电话或设备型号...">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="font-size: 0.85rem;">工单状态</label>
+                    <select class="form-control" id="filterStatus">
+                        <option value="">全部状态</option>
+                        <option value="等待订货">等待订货</option>
+                        <option value="待维修">待维修</option>
+                        <option value="维修中">维修中</option>
+                        <option value="待取机">待取机</option>
+                        <option value="已完成">已完成</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="font-size: 0.85rem;">设备品牌</label>
+                    <select class="form-control" id="filterBrand">
+                        <option value="">全部品牌</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row" style="margin-bottom: 0;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="font-size: 0.85rem;">开始日期</label>
+                    <input type="date" class="form-control" id="filterDateFrom">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="font-size: 0.85rem;">结束日期</label>
+                    <input type="date" class="form-control" id="filterDateTo">
+                </div>
+                <div class="form-group" style="margin-bottom: 0; display: flex; align-items: flex-end; gap: 0.5rem;">
+                    <button class="btn btn-primary" onclick="applyFilters()">🔍 查询</button>
+                    <button class="btn btn-ghost" onclick="clearFilters()">🔄 清除</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 结果统计 -->
+        <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="color: var(--text-muted);">共找到 </span>
+                <span id="resultCount" style="font-weight: 600; color: var(--accent-purple);">0</span>
+                <span style="color: var(--text-muted);"> 条记录</span>
+            </div>
+            <a href="front-desk.html" class="btn btn-ghost">← 返回前台看板</a>
+        </div>
+
+        <!-- 结果列表 -->
+        <div id="resultContainer"></div>
+    </div>
+
+    <!-- 工单详情模态框 -->
+    <div class="modal-overlay" id="orderModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>工单详情</h3>
+                <button class="modal-close" onclick="closeModal('orderModal')">&times;</button>
+            </div>
+            <div id="orderModalContent"></div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" style="color: var(--accent-orange);" onclick="deleteOrder()">🗑️
+                    删除工单</button>
+                <button class="btn btn-ghost" onclick="closeModal('orderModal')">关闭</button>
+                <button class="btn btn-primary" id="printOrderBtn">🖨️ 打印工单</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        let allOrders = [];
+        let filteredOrders = [];
+        let currentOrder = null;
+
+        // 格式化图案密码显示
+        function formatPatternPassword(pattern) {
+            if (!pattern) return '';
+            return pattern.split(',').map(i => parseInt(i) + 1).join(' → ');
+        }
+
+        // 加载所有工单
+        async function loadAllOrders() {
+            try {
+                allOrders = await API.orders.getAll();
+
+                // 提取唯一的品牌
+                const brands = [...new Set(allOrders.map(o => o.device_brand).filter(b => b))];
+                const brandSelect = document.getElementById('filterBrand');
+                brandSelect.innerHTML = '<option value="">全部品牌</option>' +
+                    brands.map(b => `<option value="${b}">${b}</option>`).join('');
+
+                applyFilters();
+            } catch (error) {
+                console.error('加载工单失败:', error);
+                utils.showToast('加载失败', 'error');
+            }
+        }
+
+        // 应用筛选
+        function applyFilters() {
+            const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
+            const status = document.getElementById('filterStatus').value;
+            const brand = document.getElementById('filterBrand').value;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+
+            filteredOrders = allOrders.filter(order => {
+                // 关键词搜索
+                if (keyword) {
+                    const searchFields = [
+                        order.order_no,
+                        order.customer_name,
+                        order.customer_phone,
+                        order.device_brand,
+                        order.device_model,
+                        order.problem
+                    ].join(' ').toLowerCase();
+                    if (!searchFields.includes(keyword)) return false;
+                }
+
+                // 状态筛选
+                if (status && order.status !== status) return false;
+
+                // 品牌筛选
+                if (brand && order.device_brand !== brand) return false;
+
+                // 日期筛选
+                if (dateFrom) {
+                    const orderDate = new Date(order.created_at);
+                    const fromDate = new Date(dateFrom);
+                    if (orderDate < fromDate) return false;
+                }
+                if (dateTo) {
+                    const orderDate = new Date(order.created_at);
+                    const toDate = new Date(dateTo);
+                    toDate.setHours(23, 59, 59, 999);
+                    if (orderDate > toDate) return false;
+                }
+
+                return true;
+            });
+
+            // 按时间倒序排列
+            filteredOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            renderResults();
+        }
+
+        // 清除筛选
+        function clearFilters() {
+            document.getElementById('searchKeyword').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterBrand').value = '';
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value = '';
+            applyFilters();
+        }
+
+        // 渲染结果
+        function renderResults() {
+            const container = document.getElementById('resultContainer');
+            document.getElementById('resultCount').textContent = filteredOrders.length;
+
+            if (filteredOrders.length === 0) {
+                container.innerHTML = `
+                    <div class="card">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <p>没有找到符合条件的工单</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="card" style="padding: 0; overflow: hidden;">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>工单号</th>
+                                    <th>客户</th>
+                                    <th>设备</th>
+                                    <th>故障描述</th>
+                                    <th>状态</th>
+                                    <th>价格</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${filteredOrders.map(order => `
+                                    <tr>
+                                        <td><span style="color: var(--accent-purple); font-weight: 600;">${order.order_no}</span></td>
+                                        <td>
+                                            <div>${order.customer_name || '-'}</div>
+                                            <div style="color: var(--text-muted); font-size: 0.85rem;">${order.customer_phone || ''}</div>
+                                        </td>
+                                        <td>${order.device_brand} ${order.device_model}</td>
+                                        <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${order.problem}">${order.problem}</td>
+                                        <td><span class="status-badge ${order.status}">${order.status}</span></td>
+                                        <td><span style="color: var(--accent-green);">${utils.formatPrice(order.final_price || order.estimated_price)}</span></td>
+                                        <td style="font-size: 0.85rem;">${utils.formatDate(order.created_at)}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-ghost" onclick="showOrderDetail(${order.id})">📋 详情</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 显示工单详情
+        async function showOrderDetail(id) {
+            try {
+                currentOrder = await API.orders.getById(id);
+                const content = document.getElementById('orderModalContent');
+
+                content.innerHTML = `
+                    <div style="display: grid; gap: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 1.5rem; font-weight: 600; color: var(--accent-purple);">${currentOrder.order_no}</div>
+                                <div style="color: var(--text-muted); font-size: 0.9rem;">创建于 ${utils.formatDate(currentOrder.created_at)}</div>
+                            </div>
+                            <span class="status-badge ${currentOrder.status}">${currentOrder.status}</span>
+                        </div>
+
+                        <div class="card" style="margin: 0; padding: 1rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">👤 客户信息</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9rem;">
+                                <div><span style="color: var(--text-muted);">姓名：</span>${currentOrder.customer_name || '-'}</div>
+                                <div><span style="color: var(--text-muted);">电话：</span>${currentOrder.customer_phone || '-'}</div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin: 0; padding: 1rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">📱 设备信息</div>
+                            <div style="font-size: 0.9rem;">
+                                <div><span style="color: var(--text-muted);">品牌型号：</span>${currentOrder.device_brand} ${currentOrder.device_model}</div>
+                                ${currentOrder.device_password ? `<div style="margin-top: 0.5rem;"><span style="color: var(--text-muted);">🔐 设备密码：</span><span style="color: var(--accent-blue); font-family: monospace;">${currentOrder.device_password}</span></div>` : ''}
+                                ${currentOrder.pattern_password ? `<div style="margin-top: 0.5rem;"><span style="color: var(--text-muted);">📐 图案密码：</span><span style="color: var(--accent-purple); font-family: monospace;">${formatPatternPassword(currentOrder.pattern_password)}</span></div>` : ''}
+                                <div style="margin-top: 0.5rem;"><span style="color: var(--text-muted);">故障描述：</span></div>
+                                <div style="padding: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-sm); margin-top: 0.25rem; white-space: pre-line;">
+                                    ${currentOrder.problem}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin: 0; padding: 1rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">💰 费用信息</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9rem;">
+                                <div><span style="color: var(--text-muted);">预估价格：</span><span style="color: var(--accent-green);">${utils.formatPrice(currentOrder.estimated_price)}</span></div>
+                                <div><span style="color: var(--text-muted);">押金：</span><span style="color: var(--accent-blue);">${utils.formatPrice(currentOrder.deposit || 0)}</span></div>
+                                <div><span style="color: var(--text-muted);">实际价格：</span><span style="color: var(--accent-green); font-weight: 600;">${utils.formatPrice(currentOrder.final_price)}</span></div>
+                                <div><span style="color: var(--text-muted);">预计完成：</span>${currentOrder.estimated_date || '-'}</div>
+                            </div>
+                        </div>
+
+                        ${currentOrder.repair_notes ? `
+                        <div class="card" style="margin: 0; padding: 1rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">📝 维修备注</div>
+                            <div style="padding: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-sm); font-size: 0.9rem; white-space: pre-line;">
+                                ${currentOrder.repair_notes}
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+
+                openModal('orderModal');
+            } catch (error) {
+                utils.showToast('加载详情失败', 'error');
+            }
+        }
+
+        // 打印工单
+        document.getElementById('printOrderBtn').addEventListener('click', () => {
+            if (currentOrder) {
+                utils.printOrder(currentOrder);
+            }
+        });
+
+        // 回车搜索
+        document.getElementById('searchKeyword').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                applyFilters();
+            }
+        });
+
+        // 删除工单
+        async function deleteOrder() {
+            if (!currentOrder) return;
+
+            const confirmMsg = `确定要删除工单 ${currentOrder.order_no} 吗？\n\n此操作不可恢复！`;
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                await API.orders.delete(currentOrder.id);
+                utils.showToast('工单已删除');
+                closeModal('orderModal');
+                loadAllOrders();
+            } catch (error) {
+                utils.showToast('删除失败: ' + error.message, 'error');
+            }
+        }
+
+        // 初始化
+        loadAllOrders();
+    </script>
+</body>
+
+</html>

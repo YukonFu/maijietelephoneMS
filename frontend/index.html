@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>迈捷手机内部流程管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <span class="logo">📱</span>
+            <h1>手机维修管理</h1>
+        </a>
+        <ul class="navbar-menu">
+            <li><a href="index.html" class="active">🏠 首页</a></li>
+            <li><a href="register.html">📝 登记</a></li>
+            <li><a href="front-desk.html">📺 前台看板</a></li>
+            <li><a href="repair.html">🔧 维修看板</a></li>
+            <li><a href="customers.html">👥 客户</a></li>
+            <li><a href="pricing.html">💰 价格管理</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h2>📊 工作台</h2>
+            <p>欢迎使用手机维修管理系统</p>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-icon purple">📋</div>
+                <div class="stat-info">
+                    <h3 id="totalOrders">-</h3>
+                    <p>总工单数</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon pink">⏳</div>
+                <div class="stat-info">
+                    <h3 id="pendingOrders">-</h3>
+                    <p>待维修</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue">🔧</div>
+                <div class="stat-info">
+                    <h3 id="inProgressOrders">-</h3>
+                    <p>维修中</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">✅</div>
+                <div class="stat-info">
+                    <h3 id="waitingPickup">-</h3>
+                    <p>待取机</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"
+                    style="background: linear-gradient(135deg, rgba(102, 187, 106, 0.2), rgba(76, 175, 80, 0.3));">💰
+                </div>
+                <div class="stat-info">
+                    <h3 id="totalRevenue">-</h3>
+                    <p>总收入</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快捷操作 -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <div class="card-header">
+                <h3 class="card-title">快捷操作</h3>
+            </div>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <a href="register.html" class="btn btn-primary">
+                    ➕ 新建工单
+                </a>
+                <a href="front-desk.html" class="btn btn-ghost">
+                    📺 查看前台看板
+                </a>
+                <a href="repair.html" class="btn btn-ghost">
+                    🔧 进入维修看板
+                </a>
+            </div>
+        </div>
+
+        <!-- 统计图表 -->
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">📈 本周工单趋势</h3>
+                </div>
+                <div style="height: 250px;">
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">📊 工单状态分布</h3>
+                </div>
+                <div style="height: 250px; display: flex; align-items: center; justify-content: center;">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近工单 -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">最近工单</h3>
+                <a href="front-desk.html" class="btn btn-sm btn-ghost">查看全部</a>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>工单号</th>
+                            <th>客户</th>
+                            <th>设备</th>
+                            <th>问题</th>
+                            <th>状态</th>
+                            <th>时间</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentOrdersBody">
+                        <tr>
+                            <td colspan="6" class="empty-state">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // 加载统计数据
+        async function loadStats() {
+            try {
+                const stats = await API.stats.get();
+                document.getElementById('totalOrders').textContent = stats.totalOrders;
+                document.getElementById('pendingOrders').textContent = stats.pendingOrders;
+                document.getElementById('inProgressOrders').textContent = stats.inProgressOrders;
+                document.getElementById('waitingPickup').textContent = stats.waitingPickup;
+                document.getElementById('totalRevenue').textContent = '€' + (stats.totalRevenue || 0).toFixed(2);
+            } catch (error) {
+                console.error('加载统计失败:', error);
+            }
+        }
+
+        // 加载最近工单
+        async function loadRecentOrders() {
+            try {
+                const orders = await API.orders.getAll();
+                const tbody = document.getElementById('recentOrdersBody');
+
+                if (orders.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">暂无工单</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = orders.slice(0, 10).map(order => `
+                    <tr>
+                        <td><strong>${order.order_no}</strong></td>
+                        <td>${order.customer_name || '-'}</td>
+                        <td>${order.device_brand} ${order.device_model}</td>
+                        <td>${order.problem.substring(0, 20)}${order.problem.length > 20 ? '...' : ''}</td>
+                        <td><span class="status-badge ${order.status}">${order.status}</span></td>
+                        <td>${utils.formatDate(order.created_at)}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('加载工单失败:', error);
+                document.getElementById('recentOrdersBody').innerHTML =
+                    '<tr><td colspan="6" class="empty-state">加载失败，请刷新重试</td></tr>';
+            }
+        }
+
+        // 页面初始化
+        loadStats();
+        loadRecentOrders();
+        loadCharts();
+
+        // 加载图表
+        async function loadCharts() {
+            try {
+                const orders = await API.orders.getAll();
+                renderWeeklyChart(orders);
+                renderStatusChart(orders);
+            } catch (error) {
+                console.error('加载图表数据失败:', error);
+            }
+        }
+
+        // 渲染本周工单趋势图
+        function renderWeeklyChart(orders) {
+            const ctx = document.getElementById('weeklyChart').getContext('2d');
+
+            // 计算最近7天每天的工单数
+            const days = [];
+            const counts = [];
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                const dayName = ['日', '一', '二', '三', '四', '五', '六'][date.getDay()];
+                days.push(dayName);
+
+                const count = orders.filter(o => o.created_at.startsWith(dateStr)).length;
+                counts.push(count);
+            }
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: days,
+                    datasets: [{
+                        label: '工单数',
+                        data: counts,
+                        borderColor: 'rgb(102, 126, 234)',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+        }
+
+        // 渲染工单状态分布图
+        function renderStatusChart(orders) {
+            const ctx = document.getElementById('statusChart').getContext('2d');
+
+            const statusCounts = {
+                '等待订货': 0,
+                '待维修': 0,
+                '维修中': 0,
+                '待取机': 0,
+                '已完成': 0
+            };
+
+            orders.forEach(o => {
+                if (statusCounts.hasOwnProperty(o.status)) {
+                    statusCounts[o.status]++;
+                }
+            });
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(statusCounts),
+                    datasets: [{
+                        data: Object.values(statusCounts),
+                        backgroundColor: [
+                            'rgba(245, 87, 108, 0.8)',
+                            'rgba(255, 193, 7, 0.8)',
+                            'rgba(33, 150, 243, 0.8)',
+                            'rgba(156, 39, 176, 0.8)',
+                            'rgba(76, 175, 80, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: 'rgba(255,255,255,0.8)', boxWidth: 12, padding: 8 }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>
